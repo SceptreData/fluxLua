@@ -42,7 +42,7 @@ void flux_SetLuaVar(LuaVar_t *var, const char *value)
     var->val = atof(value);
 }
 
-int lua_ParseLuaVar(lua_State *L, LuaVar_t *var)
+static int lua_ParseLuaVar(lua_State *L, LuaVar_t *var)
 {
     if (!L) {
        printf("ERROR: Trying to parse Variable from inactive Lua state.\n"); 
@@ -70,7 +70,7 @@ int lua_ParseLuaVar(lua_State *L, LuaVar_t *var)
     return 0;
 }
 
-int lua_GetScriptVar (LuaScript_t *script, LuaVar_t *var, char *varName)
+int lua_GetScriptVar (LuaScript_t *script, char *varName, LuaVar_t *var)
 {
     if (script->L == NULL) {
         printf("ERROR: Tried to Get variable from un-loaded script '%s'.\n", script->filename);
