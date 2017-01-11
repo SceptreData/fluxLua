@@ -33,6 +33,8 @@ LuaScript_t *LuaScript_Load (char *filename);
 
 LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName);
 
+LuaVar_t *LuaScript_GetTable (LuaScript_t *script, char *tableName);
+
 void LuaVar_Set(LuaVar_t *var, const char *value);
 
 void LuaScript_Free( LuaScript_t *script );

@@ -69,12 +69,16 @@ LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName)
         return NULL;
     }
 
-    LuaVar_t *var;
+    LuaVar_t *var = NULL;
     // Try to find our variable in the LuaScript, then push it to the top of the Lua stack.
+    // If we find it, parse the value into an LuaVar_t
     if (LuaScript_FindVar(script, varName)) {
-        // If we find it, parse the value into an LuaVar_t
-        LuaVar_t *var = LuaVar_New(varName);
-        LuaVar_Parse(script->L, var);
+        var = LuaVar_New(varName);
+        // if LuaVar_Parse returns an error, free our poor LuaVar
+        if (LuaVar_Parse(script->L, var)){
+            LuaVar_Free(var);
+            var = NULL;
+        }
     } else {
         printf("ERROR: Could not find '%s' in loaded script '%s'\n", varName, script->filename);
         return NULL;
@@ -147,12 +151,13 @@ int LuaScript_FindVar( LuaScript_t *script, const char *varName)
         if (lua_isnil(script->L, -1)) {
             printf("ERROR: Unable to find object '%s' in %s from %s.\n",
                     curVar, varName, script->filename);
-            return 1;
+            return 0;
         } else {
+            curVar = strtok(NULL, ".");
             level += 1;
         }
     }
-    return 0;
+    return 1;
 }
 
 /* LuaVar_Parse()
@@ -183,7 +188,7 @@ int LuaVar_Parse(lua_State *L, LuaVar_t *var)
             LuaVar_Set(var, "0");
         }
     } else {
-        printf("ERROR: Trying to parse invalid variable type.\n");
+        printf("ERROR: Trying to parse invalid variable type.(Is it a table?)\n");
         return 1;
     }
     return 0;
