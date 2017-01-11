@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void flux_ClearLuaStack (lua_State *L);
-static char *flux_strdup (const char *str);
+#define MemoryError() do{printf("ERROR: Ran out of memory"); exit(-1);}while(0)
+
+void flux_ClearLuaStack (lua_State *L);
+char *flux_strdup (const char *str);
 
 #endif

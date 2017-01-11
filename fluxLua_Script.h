@@ -4,8 +4,8 @@
  * Bindings to interact and load lua scripts from C.
  */
 
-#ifndef FLUXLUA_H
-#define FLUXLUA_H
+#ifndef FLUXLUA_SCRIPT_H
+#define FLUXLUA_SCRIPT_H
 
 
 #include <lua.h>
@@ -31,11 +31,13 @@ typedef struct LuaVar_s{
 
 LuaScript_t *LuaScript_Load (char *filename);
 
-LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName, LuaVar_t *var);
+LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName);
 
 void LuaVar_Set(LuaVar_t *var, const char *value);
 
-void LuaScript_Free( LuaScript_t *script )
+void LuaScript_Free( LuaScript_t *script );
 
-void LuaVar_Free( LuaVar_t *var )
+void LuaVar_Free( LuaVar_t *var );
+
+void LuaVar_FreeTable( LuaVar_t *table );
 #endif

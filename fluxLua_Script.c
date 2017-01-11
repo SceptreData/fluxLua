@@ -1,6 +1,5 @@
-#include "flux_LuaScript.h"
+#include "fluxLua_Script.h"
 
-#define MemoryError() do{printf("ERROR: Ran out of memory"); exit(-1);}while(0);
 
 static LuaScript_t *LuaScript_New(void)
 {
@@ -40,13 +39,13 @@ LuaScript_t *LuaScript_Load( char *filename )
 }
 
 /* LuaVar_t initializer */
-LuaVar_t *LuaVar_New(void)
+LuaVar_t *LuaVar_New(char *varName)
 {
     LuaVar_t *var = malloc(sizeof(*var));
     if (!var) {
         MemoryError();
     }
-    var->name = NULL;
+    var->name = strdup(varName);
     var->str = NULL;
     var->val = 0;
 
@@ -60,36 +59,75 @@ void LuaVar_Set(LuaVar_t *var, const char *value)
 }
 
 // Forward declarations.
-static int LuaScript_FindVar ( LuaScript_t *script, const char *varName);
-static int LuaScript_ParseVar (lua_State *L, LuaVar_t *var);
+int LuaScript_FindVar( LuaScript_t *script, const char *varName);
+int LuaVar_Parse(lua_State *L, LuaVar_t *var);
 
 LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName)
 {
-    if (script->L == NULL) {
+    if (script == NULL || script->L == NULL) {
         printf("ERROR: Tried to Get variable from un-loaded script '%s'.\n", script->filename);
-        return 1;
+        return NULL;
     }
 
-    LuaVar_t *var = LuaVar_New();
-
+    LuaVar_t *var;
     // Try to find our variable in the LuaScript, then push it to the top of the Lua stack.
     if (LuaScript_FindVar(script, varName)) {
         // If we find it, parse the value into an LuaVar_t
+        LuaVar_t *var = LuaVar_New(varName);
         LuaVar_Parse(script->L, var);
     } else {
         printf("ERROR: Could not find '%s' in loaded script '%s'\n", varName, script->filename);
-        return 1;
+        return NULL;
     }
     flux_ClearLuaStack(script->L);
-    return 0;
+    return var;
 }
 
+LuaVar_t *LuaScript_BuildTable(lua_State *L, char *tableName, size_t tableLen )
+{
+    LuaVar_t *table = malloc(sizeof(LuaVar_t) * (tableLen + 1));
+    if (!table) {
+        MemoryError();
+    }
+
+    // Use our first value in the array to hold the tableName and the size of our array.
+    table[0].name = strdup(tableName);
+    table[0].str = strdup("size");
+    table[0].val = tableLen;
+
+
+    int idx = 1; 
+    lua_pushnil(L);
+    while (lua_next(L, -2)) {
+        LuaVar_Parse(L, &table[idx]);
+        lua_pop(L, 1);
+        idx++;
+    }
+    return table;
+}
+
+LuaVar_t *LuaScript_GetTable (LuaScript_t *script, char *tableName)
+{
+    if (script == NULL || script->L == NULL) {
+        printf("ERROR: Tried to Get variable from un-loaded script '%s'.\n", script->filename);
+        return NULL;
+    }
+
+    LuaVar_t *table = NULL;
+    if (LuaScript_FindVar(script, tableName)) {
+        size_t tableLen= lua_rawlen(script->L, -1);
+        table = LuaScript_BuildTable(script->L, tableName, tableLen);
+    }
+    flux_ClearLuaStack(script->L);
+
+    return table;
+}
 /* LuaScript_FindVar()
  * This function splits the provided variable name and navigates through the Lua
  * tables to find the associated variable value.
- * If we find the value, we push it onto the Lua stack so other functions can acces it.
+ * If we find the value, we push it onto the Lua stack so other functions can access it.
  */
-static int LuaScript_FindVar( LuaScript_t *script, const char *varName)
+int LuaScript_FindVar( LuaScript_t *script, const char *varName)
 {
     // we use strtok() to split our variable name on the periods, so we have to duplicate
     // the string first so we don't modify the original.
@@ -107,7 +145,7 @@ static int LuaScript_FindVar( LuaScript_t *script, const char *varName)
         }
 
         if (lua_isnil(script->L, -1)) {
-            printf("ERROR: Unable to find variable '%s' in %s from %s.\n",
+            printf("ERROR: Unable to find object '%s' in %s from %s.\n",
                     curVar, varName, script->filename);
             return 1;
         } else {
@@ -123,7 +161,7 @@ static int LuaScript_FindVar( LuaScript_t *script, const char *varName)
  * The Lua object at the top of the stack can be any string, value or boolean,
  * but it will always be stored as both a float AND a string.
  */
-static int LuaVar_Parse(lua_State *L, LuaVar_t *var)
+int LuaVar_Parse(lua_State *L, LuaVar_t *var)
 {
     if (!L) {
        printf("ERROR: Trying to parse Variable from inactive Lua state.\n"); 
@@ -136,13 +174,13 @@ static int LuaVar_Parse(lua_State *L, LuaVar_t *var)
     }
 
     if (lua_isstring(L, -1) || lua_isnumber(L, -1)){
-         flux_SetLuaVar(var, lua_tostring(L, -1));
+         LuaVar_Set(var, lua_tostring(L, -1));
     }
     else if (lua_isboolean(L, -1)){
         if (lua_toboolean(L, -1) == 1){
-            flux_SetLuaVar(var, "1");
+            LuaVar_Set(var, "1");
         } else {
-            flux_SetLuaVar(var, "0");
+            LuaVar_Set(var, "0");
         }
     } else {
         printf("ERROR: Trying to parse invalid variable type.\n");
@@ -174,5 +212,21 @@ void LuaVar_Free( LuaVar_t *var )
             free(var->str);
         }
         free(var);
+    }
+}
+
+void LuaVar_FreeTable( LuaVar_t *table )
+{
+    if (table){
+        int tableLen = (int)table[0].val + 1;
+        LuaVar_t *p = table;
+        for (int i = 0; i < tableLen; i++) {
+            if (p->name)
+                free(p->name);
+            if (p->str)
+                free(p->str);
+            p++;
+        }
+        free(table);
     }
 }
