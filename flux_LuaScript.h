@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "fluxLua_util.h"
+
 typedef struct LuaScript_s
 {
     lua_State *L;
@@ -27,6 +29,13 @@ typedef struct LuaVar_s{
     float val;
 } LuaVar_t;
 
-LuaScript_t *lua_LoadScript( char *filename );
-int lua_GetScriptVar (LuaScript_t *script, char *varName, LuaVar_t *var);
+LuaScript_t *LuaScript_Load (char *filename);
+
+LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName, LuaVar_t *var);
+
+void LuaVar_Set(LuaVar_t *var, const char *value);
+
+void LuaScript_Free( LuaScript_t *script )
+
+void LuaVar_Free( LuaVar_t *var )
 #endif
