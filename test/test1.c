@@ -1,4 +1,4 @@
-#include "../fluxLua_Script.h"
+#include "../flux_LuaScript.h"
 #include <assert.h>
 
 int Pass(int testNum)
