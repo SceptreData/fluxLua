@@ -85,9 +85,9 @@ LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName)
 }
 
 /* LuaScript_FindVar()
- * This function parses the provided variable name and then navigates through the Lua
- * tables to find the associated value.
- * If we find the value, we push it onto the Lua stack so we can parse it.
+ * This function splits the provided variable name and navigates through the Lua
+ * tables to find the associated variable value.
+ * If we find the value, we push it onto the Lua stack so other functions can acces it.
  */
 static int LuaScript_FindVar( LuaScript_t *script, const char *varName)
 {
