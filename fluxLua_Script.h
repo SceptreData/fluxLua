@@ -15,8 +15,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "fluxLua_util.h"
-
 typedef struct LuaScript_s
 {
     lua_State *L;
