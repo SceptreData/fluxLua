@@ -43,6 +43,8 @@ static int LuaVar_Parse(lua_State *L, LuaVar_t *var)
         return 1;
     }
     // lua_tostring automatically converts our Lua numbers into strings.
+    // It also prevents any errors related to Lua being configured for different
+    // float types.
     if (lua_isstring(L, -1) || lua_isnumber(L, -1)){
          LuaVar_Set(var, lua_tostring(L, -1));
     }
@@ -75,7 +77,7 @@ static LuaVar_t *LuaVar_BuildTable(lua_State *L, char *tableName)
 
     // Use our first value in the array to hold the tableName and the size of our array.
     table[0].name = strdup(tableName);
-    table[0].str = strdup("TABLE");
+    table[0].str = strdup("_TABLE");
     table[0].val = tableLen;
 
 
@@ -104,7 +106,13 @@ void LuaVar_Free( LuaVar_t *var )
 
 void LuaVar_FreeTable( LuaVar_t *table )
 {
-    if (table){
+    if (table) {
+        // Make sure we are actually trying to free a table.
+        if (strcmp(table->str, "_TABLE") != 0){
+            printf("ERROR: Trying to free LuaVar_t table: %s. Var is not table.\n",
+                    table->name);
+            return; 
+        }
         int tableLen = (int)table[0].val + 1;
         LuaVar_t *p = table;
         for (int i = 0; i < tableLen; i++) {
