@@ -1,4 +1,5 @@
-#include "fluxLua_Script.h"
+#include "flux_LuaScript.h"
+
 
 /* Utility Function Forward Declarations */
 static char *flux_strdup(const char *str);
@@ -232,7 +233,7 @@ LuaVar_t *LuaScript_GetTable (LuaScript_t *script, char *tableName)
 
     LuaVar_t *table = NULL;
     if (LuaScript_FindVar(script, tableName)) {
-        table = LuaScript_BuildTable(script->L, tableName);
+        table = LuaVar_BuildTable(script->L, tableName);
     }
     flux_ClearLuaStack(script->L);
 
