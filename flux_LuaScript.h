@@ -57,6 +57,17 @@ LuaScript_GetTable()
 
 Tries to retrieve a table from a loaded Lua script.
 Returns an array of LuaVar_t if succesful.
+This array contains (N + 1) elements, where N is the length of the table in lua.
+The first element of the array is used to provide information about the array.
+The str field contains the string "_TABLE" to identify the LuaVar_t as a table,
+the val field contains the length of our array to facilitate iteration.
+This means that if you want to iterate starting at the first real element of the table,
+start by accessing the element at index 1. (The second element in the array).
+
+EX: int num_elts = table[0].val;
+    for (int i = 1; i <= num_elts; i++){
+        ...
+    }
 ================
 */
 LuaVar_t *LuaScript_GetTable (LuaScript_t *script, char *tableName);
