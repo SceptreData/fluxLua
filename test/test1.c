@@ -43,8 +43,9 @@ void TestThree(LuaScript_t *script)
 
 void TestFour(LuaScript_t *script)
 {
-    LuaVar_t *err_table = LuaScript_Get(script, "nested_table");
-    assert(err_table == NULL);
+    LuaVar_t *t = LuaScript_Get(script, "nested_table");
+    printf("Table name: %s\nTable string: %s\nTable Val: %d\n", t->name, t->str, t->val);
+    assert(!strcmp(t->str, "_TABLE"));
     Pass(4);
 }
 
@@ -86,7 +87,7 @@ void TestSix(LuaScript_t *script)
 
 int main(void)
 {
-    LuaScript_t  *script = LuaScript_Load("testfile.lua");
+    LuaScript_t  *script = LuaScript_Load(NULL, "testfile.lua");
 
     TestOne(script);
     TestTwo(script);

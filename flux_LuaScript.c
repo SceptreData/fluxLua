@@ -2,6 +2,7 @@
 
 
 /* Utility Function Forward Declarations */
+static int lua_TableLen(lua_State *L);
 static char *flux_strdup(const char *str);
 static void flux_ClearLuaStack(lua_State *L);
 
@@ -27,13 +28,60 @@ void LuaVar_Set(LuaVar_t *var, const char *value)
     var->val = atof(value);
 }
 
+
+// Build an array of LuaVar_t values out of the table on the top of the Lua stack.
+static LuaVar_t *LuaVar_BuildTable(lua_State *L, char *tableName)
+{
+    if (L == NULL || !lua_istable(L, -1)) {
+        printf("ERROR: Unable to load table %s. Did you pass a table?\n", tableName);
+        return NULL;
+    }
+
+    int len = lua_TableLen(L);
+    LuaVar_t *table = malloc(sizeof(LuaVar_t) * (len + 1));
+
+    // Use our first value in the array to hold the tableName and the size of our array.
+    table[0].name = strdup(tableName);
+    table[0].str = strdup("_TABLE");
+    table[0].val = len;
+
+
+    char num_buff[32];
+    int idx = 1; 
+
+    lua_pushnil(L);
+    while (lua_next(L, -2)) {
+        if (!lua_isnumber(L, -2)){
+            table[idx].name = strdup(lua_tostring(L, -2));
+        
+        // Calling lua_tostring on numerical table keys converts them to strings
+        // on the stack, which prevents lua_next from properly finding the next key.
+        } else {
+            int num_key = (int) lua_tonumber(L, -2);
+            snprintf(num_buff, 32, "%d", num_key);
+            table[idx].name = strdup(num_buff);
+        }
+
+        LuaVar_Parse(L, &table[idx]);
+        lua_pop(L, 1);
+        idx++;
+    }
+
+
+    if (!table) {
+        MemoryError();
+    }
+
+    return table;
+}
+
 /* LuaVar_Parse()
  * Tries to parse the Lua object currently at the top of the stack
  * into an LuaVar_t.
  * The Lua object at the top of the stack can be any string, value or boolean,
  * but it will always be stored as both a float AND a string.
  */
-static int LuaVar_Parse(lua_State *L, LuaVar_t *var)
+int LuaVar_Parse(lua_State *L, LuaVar_t *var)
 {
     if (!L) {
        printf("ERROR: Trying to parse Variable from inactive Lua state.\n"); 
@@ -63,37 +111,6 @@ static int LuaVar_Parse(lua_State *L, LuaVar_t *var)
     }
 
     return 0;
-}
-
-// Build an array of LuaVar_t values out of the table on the top of the Lua stack.
-static LuaVar_t *LuaVar_BuildTable(lua_State *L, char *tableName)
-{
-    if (L == NULL || !lua_istable(L, -1)) {
-        printf("ERROR: Unable to load table %s. Did you pass a table?\n", tableName);
-        return NULL;
-    }
-
-    size_t tableLen = lua_rawlen(L, -1);
-    LuaVar_t *table = malloc(sizeof(LuaVar_t) * (tableLen + 1));
-    if (!table) {
-        MemoryError();
-    }
-
-    // Use our first value in the array to hold the tableName and the size of our array.
-    table[0].name = strdup(tableName);
-    table[0].str = strdup("_TABLE");
-    table[0].val = tableLen;
-
-
-    int idx = 1; 
-    lua_pushnil(L);
-    while (lua_next(L, -2)) {
-        LuaVar_Parse(L, &table[idx]);
-        lua_pop(L, 1);
-        idx++;
-    }
-
-    return table;
 }
 
 void LuaVar_Free( LuaVar_t *var )
@@ -218,12 +235,17 @@ LuaVar_t *LuaScript_Get (LuaScript_t *script, char *varName)
     // Try to find our variable in the LuaScript, then push it to the top of the Lua stack.
     // If we find it, parse the value into an LuaVar_t
     if (LuaScript_FindVar(script, varName)) {
-        var = LuaVar_New(varName);
-        // if LuaVar_Parse returns an error, free our poor LuaVar
-        if (LuaVar_Parse(script->L, var)){
-            LuaVar_Free(var);
-            var = NULL;
+        if (lua_istable(script->L, -1)) {
+            var = LuaVar_BuildTable(script->L, varName);
+        } else {
+            var = LuaVar_New(varName);
+            if (LuaVar_Parse(script->L, var)){
+                LuaVar_Free(var);
+                var = NULL;
+            }
         }
+
+        // if LuaVar_Parse returns an error, free our poor LuaVar
     } else {
         printf("ERROR: Could not find '%s' in loaded script '%s'\n", varName, script->filename);
         return NULL;
@@ -257,6 +279,17 @@ static char *flux_strdup (const char *str)
     }
 
     return strcpy(p, str);
+}
+
+static int lua_TableLen(lua_State *L)
+{
+    int len = 0;
+    lua_pushnil(L);
+    while(lua_next(L, -2)){
+        lua_pop(L, 1);
+        len++;
+    }
+    return len;
 }
 
 static void flux_ClearLuaStack (lua_State *L)

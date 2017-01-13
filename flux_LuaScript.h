@@ -43,22 +43,13 @@ LuaScript_t *LuaScript_Load (lua_State *L, char *filename);
 
 /*
 ================
-LuaScript_GetVar()
+LuaScript_Get()
 
 Tries to retrieve a variable from a loaded Lua script.
 Returns an LuaVar_t, containing both a float and a string
-representation of the value. Throws an error if the object pointed to
-is a table.
-================
-*/
-LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName);
+representation of the value. 
 
-/*
-================
-LuaScript_GetTable()
-
-Tries to retrieve a table from a loaded Lua script.
-Returns an array of LuaVar_t if succesful.
+If value is a table, returns an array of LuaVar_t if succesful.
 This array contains (N + 1) elements, where N is the length of the table in lua.
 The first element of the array is used to provide information about the array.
 The str field contains the string "_TABLE" to identify the LuaVar_t as a table,
@@ -70,9 +61,10 @@ EX: int num_elts = table[0].val;
     for (int i = 1; i <= num_elts; i++){
         ...
     }
+
 ================
 */
-LuaVar_t *LuaScript_GetTable (LuaScript_t *script, char *tableName);
+LuaVar_t *LuaScript_Get(LuaScript_t *script, char *varName);
 
 /*
 ================
@@ -83,6 +75,13 @@ modify the original script value.
 ================
 */
 void LuaVar_Set(LuaVar_t *var, const char *value);
+
+/*
+================
+LuaVar_Parse()
+================
+ */
+int LuaVar_Parse(lua_State *L, LuaVar_t *var);
 
 /*
 ================
