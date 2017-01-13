@@ -43,9 +43,8 @@ static int LuaVar_Parse(lua_State *L, LuaVar_t *var)
         printf("ERROR: Unable to parse LuaVar, top of stack is nil.\n");
         return 1;
     }
-    // lua_tostring automatically converts our Lua numbers into strings.
-    // It also prevents any errors related to Lua being configured for different
-    // float types.
+
+    // lua_tostring converts our Lua numbers into strings.
     if (lua_isstring(L, -1) || lua_isnumber(L, -1)){
          LuaVar_Set(var, lua_tostring(L, -1));
     }
@@ -55,10 +54,14 @@ static int LuaVar_Parse(lua_State *L, LuaVar_t *var)
         } else {
             LuaVar_Set(var, "0");
         }
+    }
+    else if (lua_istable(L, -1)){
+        var = LuaVar_BuildTable(L, var->name);
     } else {
-        printf("ERROR: Trying to parse invalid variable type.(Is it a table?)\n");
+        printf("ERROR: Trying to parse invalid variable type.\n");
         return 1;
     }
+
     return 0;
 }
 
@@ -89,6 +92,7 @@ static LuaVar_t *LuaVar_BuildTable(lua_State *L, char *tableName)
         lua_pop(L, 1);
         idx++;
     }
+
     return table;
 }
 
@@ -141,14 +145,18 @@ static LuaScript_t *LuaScript_New(void)
     return new;
 }
 
-LuaScript_t *LuaScript_Load( char *filename )
+LuaScript_t *LuaScript_Load (lua_State *L, char *filename)
 {
     if (filename == NULL) {
         printf("ERROR: Invalid filename passed to loader");
         return NULL;
     }
-    // Generate a new Lua state for our script.
-    lua_State *L = luaL_newstate();
+
+    // If NULL or an inactive lua state was passed to our first arugment
+    // generate a new lua_State for our script.
+    if (L == NULL) {
+        L = luaL_newstate();
+    }
 
     // Load our .lua file, report any errors.
     int err = (luaL_loadfile(L, filename) || lua_pcall(L, 0, 0, 0));
@@ -169,7 +177,7 @@ LuaScript_t *LuaScript_Load( char *filename )
  * tables to find the associated variable value.
  * If we find the value, we push it onto the Lua stack so other functions can access it.
  */
-static int LuaScript_FindVar( LuaScript_t *script, const char *varName)
+static int LuaScript_FindVar (LuaScript_t *script, const char *varName)
 {
     // we use strtok() to split our variable name on the periods, so we have to duplicate
     // the string first so we don't modify the original.
@@ -180,10 +188,10 @@ static int LuaScript_FindVar( LuaScript_t *script, const char *varName)
     int level = 0;
     while (curVar != NULL) {
 
-        if (level == 0) { // If we are at the top level of the variable, it will be a global identifier.
+        if (level == 0) { // Variables at top level of namespace are global identifiers.
             lua_getglobal(script->L, curVar);
         } else {
-            lua_getfield(script->L, -1, curVar); // Otherwise, value is inside a table, so we use lua_getfield.
+            lua_getfield(script->L, -1, curVar); // Otherwise, value is inside a table.
         }
 
         if (lua_isnil(script->L, -1)) {
@@ -195,10 +203,11 @@ static int LuaScript_FindVar( LuaScript_t *script, const char *varName)
             level += 1;
         }
     }
+
     return 1;
 }
 
-LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName)
+LuaVar_t *LuaScript_Get (LuaScript_t *script, char *varName)
 {
     if (script == NULL || script->L == NULL) {
         printf("ERROR: Tried to Get variable from un-loaded script '%s'.\n", script->filename);
@@ -220,27 +229,11 @@ LuaVar_t *LuaScript_GetVar (LuaScript_t *script, char *varName)
         return NULL;
     }
     flux_ClearLuaStack(script->L);
+
     return var;
 }
 
-
-LuaVar_t *LuaScript_GetTable (LuaScript_t *script, char *tableName)
-{
-    if (script == NULL || script->L == NULL) {
-        printf("ERROR: Tried to Get variable from un-loaded script '%s'.\n", script->filename);
-        return NULL;
-    }
-
-    LuaVar_t *table = NULL;
-    if (LuaScript_FindVar(script, tableName)) {
-        table = LuaVar_BuildTable(script->L, tableName);
-    }
-    flux_ClearLuaStack(script->L);
-
-    return table;
-}
-
-void LuaScript_Free( LuaScript_t *script )
+void LuaScript_Free (LuaScript_t *script)
 {
     if (script) {
         if (script->L) {
@@ -256,16 +249,17 @@ void LuaScript_Free( LuaScript_t *script )
 
 // ----------------------------------------------------------------//
 /* Utility  Functions */
-static char *flux_strdup(const char *str)
+static char *flux_strdup (const char *str)
 {
     char *p = malloc(strlen(str) + 1);
     if (!p){
         MemoryError();
     }
+
     return strcpy(p, str);
 }
 
-static void flux_ClearLuaStack(lua_State *L)
+static void flux_ClearLuaStack (lua_State *L)
 {
     int n = lua_gettop(L);
     lua_pop(L, n);

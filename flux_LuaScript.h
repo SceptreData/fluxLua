@@ -17,10 +17,9 @@
 
 #define MemoryError() do { printf("MEMORY ERROR: Line %d\n", __LINE__); exit(-1); } while(0)
 
-typedef struct LuaScript_s
-{
-    lua_State *L;
+typedef struct LuaScript_s{
     char *filename;
+    lua_State *L;
 } LuaScript_t;
 
 typedef struct LuaVar_s{
@@ -33,11 +32,14 @@ typedef struct LuaVar_s{
 ================
 LuaScript_Load()
 
-Loads a .lua Script into a new Lua state so we can access it's values.
+Loads a .lua Script into the given Lua state so we can access it's values.
+If NULL is passed to the lua_State argument, the script will generate a new lua_State.
+This means we can easily load up scripts as data that you don't want polluting your
+primary Lua namespace.
 Returns a new LuaScript_t object.
 ================
 */
-LuaScript_t *LuaScript_Load (char *filename);
+LuaScript_t *LuaScript_Load (lua_State *L, char *filename);
 
 /*
 ================
